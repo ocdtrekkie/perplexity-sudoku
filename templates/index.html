@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Game - Flask Edition</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="game-header">
+            <h1>Sudoku Game</h1>
+            <div class="game-stats">
+                <div class="timer">
+                    <span>Time: </span>
+                    <span id="timer-display">00:00</span>
+                </div>
+                <div class="difficulty-display">
+                    <span>Difficulty: </span>
+                    <span id="current-difficulty">Easy</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="game-container">
+            <!-- Difficulty Selection Screen -->
+            <div id="difficulty-selection" class="difficulty-screen">
+                <div class="card">
+                    <div class="card__body">
+                        <h2>Choose Difficulty Level</h2>
+                        <p>Fill the 9×9 grid so each row, column, and 3×3 box contains digits 1-9</p>
+
+                        <div class="difficulty-options">
+                            <button class="btn btn--primary btn--lg difficulty-btn" data-difficulty="easy">
+                                <div class="difficulty-info">
+                                    <strong>Easy</strong>
+                                    <span>Perfect for beginners</span>
+                                    <small>~40 filled cells</small>
+                                </div>
+                            </button>
+
+                            <button class="btn btn--primary btn--lg difficulty-btn" data-difficulty="medium">
+                                <div class="difficulty-info">
+                                    <strong>Medium</strong>
+                                    <span>A good challenge</span>
+                                    <small>~32 filled cells</small>
+                                </div>
+                            </button>
+
+                            <button class="btn btn--primary btn--lg difficulty-btn" data-difficulty="hard">
+                                <div class="difficulty-info">
+                                    <strong>Hard</strong>
+                                    <span>For experts only</span>
+                                    <small>~26 filled cells</small>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Board Screen -->
+            <div id="game-board-screen" class="game-screen" style="display: none;">
+                <div class="game-board-container">
+                    <div class="sudoku-board" id="sudoku-board"></div>
+
+                    <div class="game-controls">
+                        <div class="control-buttons">
+                            <button id="new-game-btn" class="btn btn--secondary">New Game</button>
+                            <button id="validate-btn" class="btn btn--primary">Validate</button>
+                            <button id="save-btn" class="btn btn--success">Save Game</button>
+                            <button id="hint-btn" class="btn btn--info">Hint</button>
+                        </div>
+
+                        <div class="number-pad">
+                            <div class="number-pad-title">Numbers</div>
+                            <div class="number-buttons">
+                                <button class="number-btn" data-number="1">1</button>
+                                <button class="number-btn" data-number="2">2</button>
+                                <button class="number-btn" data-number="3">3</button>
+                                <button class="number-btn" data-number="4">4</button>
+                                <button class="number-btn" data-number="5">5</button>
+                                <button class="number-btn" data-number="6">6</button>
+                                <button class="number-btn" data-number="7">7</button>
+                                <button class="number-btn" data-number="8">8</button>
+                                <button class="number-btn" data-number="9">9</button>
+                                <button class="number-btn erase-btn" data-number="0">✕</button>
+                            </div>
+                        </div>
+
+                        <div id="saved-games" class="saved-games-section">
+                            <h3>Saved Games</h3>
+                            <div id="saved-games-list" class="saved-games-list">
+                                <!-- Saved games will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Modal -->
+        <div id="success-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🎉 Congratulations!</h2>
+                </div>
+                <div class="modal-body">
+                    <p>You've successfully completed the Sudoku puzzle!</p>
+                    <p id="completion-time">Time: <span id="final-time"></span></p>
+                    <p id="completion-difficulty">Difficulty: <span id="final-difficulty"></span></p>
+                </div>
+                <div class="modal-footer">
+                    <button id="play-again-btn" class="btn btn--primary">Play Again</button>
+                    <button id="close-modal-btn" class="btn btn--secondary">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/sudoku.js') }}"></script>
+</body>
+</html>
