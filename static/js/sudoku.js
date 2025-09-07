@@ -9,15 +9,31 @@ class SudokuFlaskGame {
         this.isComplete = false;
         this.currentGameId = null;
         this.baseURL = ''; // Assuming same origin
+        this.userHandle = 'Player';
 
         this.init();
     }
 
-    init() {
+    async init() {
+        await this.loadUserInfo();
         this.bindEvents();
         this.showDifficultySelection();
         this.loadSavedGames();
     }
+
+    async loadUserInfo() {
+         try {
+            const response = await fetch('/api/user-info');
+            const data = await response.json();
+            if (data.success) {
+                this.userHandle = data.user_handle;
+                    document.getElementById('user-handle').textContent = this.userHandle;
+                    document.getElementById('user-info').style.display = 'block';
+                }
+            } catch (error) {
+                console.log('User info not available:', error);
+            }
+        }
 
     bindEvents() {
         // Difficulty selection

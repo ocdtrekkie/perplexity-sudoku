@@ -49,6 +49,12 @@ body {
   font-size: 2.5rem;
 }
 
+.user-info {
+  font-size: 0.9rem;
+  color: var(--color-gray-600);
+  margin-bottom: 10px;
+}
+
 .game-stats {
   display: flex;
   justify-content: center;
