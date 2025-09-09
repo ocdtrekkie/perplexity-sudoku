@@ -293,6 +293,34 @@ def new_game():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/recent-incomplete-game', methods=['GET'])
+def get_recent_incomplete_game():
+    """Get the most recently modified incomplete game for the current user"""
+    try:
+        user_id = SandstormUser.get_user_id(request)
+        
+        # Find the most recent incomplete game
+        recent_game = SudokuGame.query.filter_by(
+            sandstorm_user_id=user_id, 
+            is_complete=False
+        ).order_by(SudokuGame.updated_at.desc()).first()
+        
+        if not recent_game:
+            return jsonify({
+                'success': True, 
+                'has_incomplete_game': False,
+                'message': 'No incomplete games found'
+            })
+        
+        return jsonify({
+            'success': True,
+            'has_incomplete_game': True,
+            'game': recent_game.to_dict()
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/game/<int:game_id>', methods=['GET'])
 def get_game(game_id):
     try:

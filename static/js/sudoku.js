@@ -1,4 +1,4 @@
-class SudokuFlaskGame {
+class SandstormSudokuGame {
     constructor() {
         this.board = Array(9).fill().map(() => Array(9).fill(0));
         this.originalBoard = Array(9).fill().map(() => Array(9).fill(0));
@@ -8,7 +8,6 @@ class SudokuFlaskGame {
         this.timerInterval = null;
         this.isComplete = false;
         this.currentGameId = null;
-        this.baseURL = ''; // Assuming same origin
         this.userHandle = 'Player';
 
         this.init();
@@ -17,23 +16,83 @@ class SudokuFlaskGame {
     async init() {
         await this.loadUserInfo();
         this.bindEvents();
-        this.showDifficultySelection();
-        this.loadSavedGames();
+
+        // Check for incomplete games first before showing difficulty selection
+        await this.checkForIncompleteGames();
+    }
+
+    async checkForIncompleteGames() {
+        try {
+            const response = await fetch('/api/recent-incomplete-game');
+            const data = await response.json();
+
+            if (data.success && data.has_incomplete_game) {
+                // Automatically load the most recent incomplete game
+                console.log('Loading most recent incomplete game:', data.game);
+                await this.loadExistingGame(data.game);
+            } else {
+                // No incomplete games, show difficulty selection
+                this.showDifficultySelection();
+                this.loadSavedGames();
+            }
+        } catch (error) {
+            console.error('Error checking for incomplete games:', error);
+            // Fallback to difficulty selection on error
+            this.showDifficultySelection();
+            this.loadSavedGames();
+        }
+    }
+
+    async loadExistingGame(gameData) {
+        try {
+            this.currentGameId = gameData.id;
+            this.board = gameData.board_state;
+            this.originalBoard = gameData.original_puzzle;
+            this.difficulty = gameData.difficulty;
+            this.timer = gameData.time_spent || 0;
+            this.isComplete = gameData.is_complete;
+            this.selectedCell = null;
+
+            if (gameData.user_handle) {
+                this.userHandle = gameData.user_handle;
+            }
+
+            this.showGameBoard();
+            this.updateBoard();
+            this.updateDisplay();
+
+            // Only start timer if game is not complete
+            if (!this.isComplete) {
+                this.startTimer();
+            }
+
+            this.loadSavedGames();
+
+            // Show a message that we auto-loaded their game
+            this.showMessage(`Resumed your ${this.difficulty} puzzle from ${new Date(gameData.updated_at).toLocaleString()}`, 'info');
+
+        } catch (error) {
+            console.error('Error loading existing game:', error);
+            this.showMessage('Error loading your saved game. Starting fresh.', 'error');
+            this.showDifficultySelection();
+        }
     }
 
     async loadUserInfo() {
-         try {
+        try {
             const response = await fetch('/api/user-info');
             const data = await response.json();
             if (data.success) {
                 this.userHandle = data.user_handle;
-                    document.getElementById('user-handle').textContent = this.userHandle;
-                    document.getElementById('user-info').style.display = 'block';
-                }
-            } catch (error) {
-                console.log('User info not available:', error);
+                const userHandleElement = document.getElementById('user-handle');
+                const userInfoElement = document.getElementById('user-info');
+                if (userHandleElement) userHandleElement.textContent = this.userHandle;
+                if (userInfoElement) userInfoElement.style.display = 'block';
             }
+        } catch (error) {
+            console.log('User info not available:', error);
         }
+    }
 
     bindEvents() {
         // Difficulty selection
@@ -116,6 +175,10 @@ class SudokuFlaskGame {
                 this.isComplete = false;
                 this.selectedCell = null;
 
+                if (data.user_handle) {
+                    this.userHandle = data.user_handle;
+                }
+
                 this.showGameBoard();
                 this.updateBoard();
                 this.updateDisplay();
@@ -123,11 +186,11 @@ class SudokuFlaskGame {
                 this.loadSavedGames();
             } else {
                 console.error('Failed to create new game:', data.error);
-                alert('Failed to create new game. Please try again.');
+                this.showMessage('Failed to create new game. Please try again.', 'error');
             }
         } catch (error) {
             console.error('Error starting new game:', error);
-            alert('Error connecting to server. Please try again.');
+            this.showMessage('Error connecting to server. Please try again.', 'error');
         }
     }
 
@@ -137,29 +200,14 @@ class SudokuFlaskGame {
             const data = await response.json();
 
             if (data.success) {
-                const game = data.game;
-                this.currentGameId = game.id;
-                this.board = game.board_state;
-                this.originalBoard = game.original_puzzle;
-                this.difficulty = game.difficulty;
-                this.timer = game.time_spent;
-                this.isComplete = game.is_complete;
-                this.selectedCell = null;
-
-                this.showGameBoard();
-                this.updateBoard();
-                this.updateDisplay();
-
-                if (!this.isComplete) {
-                    this.startTimer();
-                }
+                await this.loadExistingGame(data.game);
             } else {
                 console.error('Failed to load game:', data.error);
-                alert('Failed to load game.');
+                this.showMessage('Failed to load game.', 'error');
             }
         } catch (error) {
             console.error('Error loading game:', error);
-            alert('Error loading game.');
+            this.showMessage('Error loading game.', 'error');
         }
     }
 
@@ -238,6 +286,8 @@ class SudokuFlaskGame {
 
     displaySavedGames(games) {
         const container = document.getElementById('saved-games-list');
+        if (!container) return;
+
         container.innerHTML = '';
 
         if (games.length === 0) {
@@ -248,18 +298,27 @@ class SudokuFlaskGame {
         games.forEach(game => {
             const gameItem = document.createElement('div');
             gameItem.className = 'saved-game-item';
+
+            const isCurrentGame = game.id === this.currentGameId;
+            if (isCurrentGame) {
+                gameItem.style.backgroundColor = '#e3f2fd';
+                gameItem.style.borderLeft = '4px solid #2196f3';
+            }
+
             gameItem.innerHTML = `
                 <div class="saved-game-info">
-                    <span class="saved-game-difficulty">${game.difficulty}</span>
+                    <span class="saved-game-difficulty">${game.difficulty}${isCurrentGame ? ' (current)' : ''}</span>
                     <span class="saved-game-time">${this.formatTime(game.time_spent)}</span>
                 </div>
                 <div class="saved-game-date">${new Date(game.updated_at).toLocaleDateString()}</div>
                 ${game.is_complete ? '<div style="color: #10b981; font-size: 0.8rem;">✓ Completed</div>' : ''}
             `;
 
-            gameItem.addEventListener('click', () => {
-                this.loadGame(game.id);
-            });
+            if (!isCurrentGame) {
+                gameItem.addEventListener('click', () => {
+                    this.loadGame(game.id);
+                });
+            }
 
             container.appendChild(gameItem);
         });
@@ -278,6 +337,8 @@ class SudokuFlaskGame {
 
     createBoard() {
         const board = document.getElementById('sudoku-board');
+        if (!board) return;
+
         board.innerHTML = '';
 
         for (let row = 0; row < 9; row++) {
@@ -377,7 +438,9 @@ class SudokuFlaskGame {
 
     updateTimerDisplay() {
         const display = document.getElementById('timer-display');
-        display.textContent = this.formatTime(this.timer);
+        if (display) {
+            display.textContent = this.formatTime(this.timer);
+        }
     }
 
     formatTime(seconds) {
@@ -445,9 +508,13 @@ class SudokuFlaskGame {
     }
 
     showCompletionModal() {
-        document.getElementById('final-time').textContent = this.formatTime(this.timer);
-        document.getElementById('final-difficulty').textContent = 
+        const finalTimeElement = document.getElementById('final-time');
+        const finalDifficultyElement = document.getElementById('final-difficulty');
+
+        if (finalTimeElement) finalTimeElement.textContent = this.formatTime(this.timer);
+        if (finalDifficultyElement) finalDifficultyElement.textContent = 
             this.difficulty.charAt(0).toUpperCase() + this.difficulty.slice(1);
+
         document.getElementById('success-modal').style.display = 'flex';
     }
 
@@ -470,6 +537,7 @@ class SudokuFlaskGame {
             border-radius: 8px;
             z-index: 1001;
             animation: slideIn 0.3s ease;
+            max-width: 300px;
         `;
 
         document.body.appendChild(toast);
@@ -498,5 +566,5 @@ document.head.appendChild(style);
 
 // Initialize game when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new SudokuFlaskGame();
+    new SandstormSudokuGame();
 });
