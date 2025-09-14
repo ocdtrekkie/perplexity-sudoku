@@ -120,6 +120,7 @@ class SudokuGenerator:
         self.grid = [[0 for _ in range(9)] for _ in range(9)]
 
     def is_valid_move(self, grid, row, col, num):
+        """Check if placing num at (row, col) is valid"""
         # Check row
         for x in range(9):
             if grid[row][x] == num:
@@ -141,11 +142,12 @@ class SudokuGenerator:
         return True
 
     def solve_sudoku(self, grid):
+        """Solve sudoku using backtracking - used for generating complete grids"""
         for i in range(9):
             for j in range(9):
                 if grid[i][j] == 0:
                     numbers = list(range(1, 10))
-                    random.shuffle(numbers)
+                    random.shuffle(numbers)  # Randomize for variety
                     for num in numbers:
                         if self.is_valid_move(grid, i, j, num):
                             grid[i][j] = num
@@ -155,17 +157,53 @@ class SudokuGenerator:
                     return False
         return True
 
+    def count_solutions(self, grid, max_solutions=2):
+        """
+        Count the number of solutions for a given Sudoku puzzle
+        Returns early if more than max_solutions are found (for efficiency)
+        """
+        def backtrack_count(board, solutions_found):
+            if solutions_found[0] >= max_solutions:
+                return  # Early termination for efficiency
+
+            # Find next empty cell
+            for i in range(9):
+                for j in range(9):
+                    if board[i][j] == 0:
+                        for num in range(1, 10):
+                            if self.is_valid_move(board, i, j, num):
+                                board[i][j] = num
+                                backtrack_count(board, solutions_found)
+                                board[i][j] = 0
+                        return
+
+            # If we reach here, we found a complete solution
+            solutions_found[0] += 1
+
+        # Make a copy to avoid modifying the original
+        test_grid = [row[:] for row in grid]
+        solutions_found = [0]
+        backtrack_count(test_grid, solutions_found)
+        return solutions_found[0]
+
+    def has_unique_solution(self, grid):
+        """Check if the puzzle has exactly one solution"""
+        return self.count_solutions(grid, max_solutions=2) == 1
+
     def generate_complete_board(self):
+        """Generate a complete valid Sudoku board"""
         self.grid = [[0 for _ in range(9)] for _ in range(9)]
 
-        # Fill diagonal 3x3 boxes first
+        # Fill diagonal 3x3 boxes first (they don't affect each other)
         for box in range(0, 9, 3):
             self.fill_box(box, box)
 
+        # Fill remaining cells
         self.solve_sudoku(self.grid)
         return copy.deepcopy(self.grid)
 
     def fill_box(self, row, col):
+        """Fill a 3x3 box with random numbers"""
         numbers = list(range(1, 10))
         random.shuffle(numbers)
         for i in range(3):
@@ -173,22 +211,57 @@ class SudokuGenerator:
                 self.grid[row + i][col + j] = numbers[i * 3 + j]
 
     def generate_puzzle(self, difficulty='medium'):
+        """
+        Generate a Sudoku puzzle with unique solution using the dig-holes approach
+        """
+        print(f"Generating {difficulty} puzzle with unique solution...")
+
+        # Step 1: Generate complete board
         complete_board = self.generate_complete_board()
         puzzle = copy.deepcopy(complete_board)
 
-        cells_to_remove = {
-            'easy': 41,     # ~40 filled cells
-            'medium': 49,   # ~32 filled cells  
-            'hard': 55      # ~26 filled cells
-        }
-
+        # Step 2: Create list of all positions and shuffle
         positions = [(i, j) for i in range(9) for j in range(9)]
         random.shuffle(positions)
 
-        for i in range(cells_to_remove.get(difficulty, 49)):
-            if i < len(positions):
-                row, col = positions[i]
-                puzzle[row][col] = 0
+        # Step 3: Difficulty parameters
+        difficulty_params = {
+            'easy': {'min_clues': 36, 'max_attempts': 64},
+            'medium': {'min_clues': 30, 'max_attempts': 56}, 
+            'hard': {'min_clues': 25, 'max_attempts': 48}
+        }
+
+        params = difficulty_params.get(difficulty, difficulty_params['medium'])
+        min_clues = params['min_clues']
+        max_attempts = params['max_attempts']
+
+        # Step 4: Remove numbers while maintaining unique solution
+        removed_positions = []
+        clues_remaining = 81
+
+        for row, col in positions[:max_attempts]:
+            if clues_remaining <= min_clues:
+                break
+
+            # Try removing this number
+            original_value = puzzle[row][col]
+            puzzle[row][col] = 0
+
+            # Check if puzzle still has unique solution
+            if self.has_unique_solution(puzzle):
+                # Good! Keep it removed
+                removed_positions.append((row, col, original_value))
+                clues_remaining -= 1
+                print(f"  Removed cell ({row},{col}), {clues_remaining} clues remaining")
+            else:
+                # Oops! Put it back
+                puzzle[row][col] = original_value
+
+        print(f"  Final puzzle has {clues_remaining} clues")
+
+        # Verify the final puzzle has a unique solution
+        if not self.has_unique_solution(puzzle):
+            print("  WARNING: Final puzzle does not have unique solution!")
 
         return puzzle, complete_board
 
